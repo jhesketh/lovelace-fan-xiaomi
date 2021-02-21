@@ -6,11 +6,13 @@ class FanXiaomi extends HTMLElement {
         const state = hass.states[entityId];
         const ui = this.getUI();
 
-        if(state === undefined){
-            if (!this.card) {
-                const card = document.createElement('ha-card');
-                card.className = 'fan-xiaomi';
-                card.appendChild(ui);
+        if (!this.card){
+            const card = document.createElement('ha-card');
+            card.className = 'fan-xiaomi'
+            card.appendChild(ui)
+
+            // Check if fan is disconnected
+            if(state === undefined){
                 card.classList.add('offline');
                 this.card = card;
                 this.appendChild(card);
@@ -21,14 +23,25 @@ class FanXiaomi extends HTMLElement {
 
         const attrs = state.attributes;
 
+        let p5_speed_list = [1, 35, 70, 100]
+        let za4_speed_list = [20, 40, 60, 80, 100]
+        let model = attrs['model']
+        let speed_list
+        if (model === 'dmaker.fan.p5') {
+            speed_list = p5_speed_list
+        } else {
+            speed_list = za4_speed_list
+        }
+        
         if (!this.card) {
             const card = document.createElement('ha-card');
             card.className = 'fan-xiaomi'
 
-            // 创建UI
+            // Create UI
             card.appendChild(ui)
 
-            //调整风扇角度事件绑定
+            // Angle adjustment event bindings
+          
             ui.querySelector('.left').onmouseover = () => {
                 ui.querySelector('.left').classList.replace('hidden','show')
             }
@@ -58,9 +71,7 @@ class FanXiaomi extends HTMLElement {
                         direction: "right"
                     });
                 }
-                return false;
             }
-            // 定义事件
             ui.querySelector('.c1').onclick = () => {
                 this.log('Toggle')
                 hass.callService('fan', 'toggle', {
@@ -75,19 +86,24 @@ class FanXiaomi extends HTMLElement {
                     let icon = u.querySelector('.icon-waper > iron-icon')
                     let newSpeed
                     if (icon.getAttribute('icon') == "mdi:numeric-1-box-outline") {
-                        newSpeed = 40
+                        newSpeed = speed_list[1]
                         iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-2-box-outline"></iron-icon>'
                     } else if (icon.getAttribute('icon') == "mdi:numeric-2-box-outline") {
-                        newSpeed = 60
+                        newSpeed = speed_list[2]
                         iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-3-box-outline"></iron-icon>'
                     } else if (icon.getAttribute('icon') == "mdi:numeric-3-box-outline") {
-                        newSpeed = 80
+                        newSpeed = speed_list[3]
                         iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-4-box-outline"></iron-icon>'
                     } else if (icon.getAttribute('icon') == "mdi:numeric-4-box-outline") {
-                        newSpeed = 100
-                        iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-5-box-outline"></iron-icon>'
+                        if (speed_list[5] === undefined) {
+                            newSpeed = speed_list[0]
+                            iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-1-box-outline"></iron-icon>'
+                        } else {
+                            newSpeed = speed_list[4]
+                            iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-5-box-outline"></iron-icon>'
+                        }
                     } else if (icon.getAttribute('icon') == "mdi:numeric-5-box-outline") {
-                        newSpeed = 20
+                        newSpeed = speed_list[0]
                         iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-1-box-outline"></iron-icon>'
                     } else {
                         this.log('Error setting fan speed')
@@ -98,8 +114,89 @@ class FanXiaomi extends HTMLElement {
                     });
                 }
             }
+            ui.querySelector('.button-angle').onclick = () => {
+                this.log('Angle Level')
+                if (ui.querySelector('.fanbox').classList.contains('active')) {
+                    let u = ui.querySelector('.var-angle')
+                    let newAngle
+                    if (u.innerHTML == '30') {
+                        newAngle = 60
+                    } else if (u.innerHTML == '60') {
+                        newAngle = 90
+                    } else if (u.innerHTML == '90') {
+                        newAngle = 120
+                    } else if (u.innerHTML == '120') {
+                        newAngle = 30
+                    } else {
+                        newAngle = 30
+                        //this.log('Error setting fan angle')
+                    }
+                    //u.innerHTML = newAngle
+                    hass.callService('fan', 'xiaomi_miio_set_oscillation_angle', {
+                        angle: newAngle
+                    });
+                }
+            }
+            
+            ui.querySelector('.button-timer').onclick = () => {
+                this.log('Timer')
+                if (ui.querySelector('.fanbox').classList.contains('active')) {
+                    
+                    let u = ui.querySelector('.var-timer')
+                    
+                    let curTimer
+                    let timeParts = u.textContent.split(/[ ]+/)
+                    //split by space, if two parts - we have hours and minutes
+                    if (timeParts.length > 1) {
+                        curTimer = parseInt(timeParts[0].replace(/\D/g ,'')) * 60
+                            + parseInt(timeParts[1].replace(/\D/g ,''))
+                    }else {
+                        curTimer = parseInt(timeParts[0].replace(/\D/g ,''))
+                    }
+                    
+                    let newTimer
+                    if (curTimer < 60) {
+                        newTimer = 60
+                    } else if (curTimer < 120) {
+                        newTimer = 120
+                    } else if (curTimer < 180) {
+                        newTimer = 180
+                    } else if (curTimer < 240) {
+                        newTimer = 240
+                    } else if (curTimer < 300) {
+                        newTimer = 300
+                    } else if (curTimer < 360) {
+                        newTimer = 360
+                    } else if (curTimer < 420) {
+                        newTimer = 420
+                    } else if (curTimer < 480) {
+                        newTimer = 480
+                    } else {
+                        newTimer = 60
+                    }
+                    
+                    hass.callService('fan', 'xiaomi_miio_set_delay_off', {
+                        delay_off_countdown: newTimer
+                    });
+                }
+            }
+
+            ui.querySelector('.button-childlock').onclick = () => {
+                this.log('Child lock')
+                if (ui.querySelector('.fanbox').classList.contains('active')) {
+                    let u = ui.querySelector('.var-childlock')
+                    let newAngle
+                    if (u.innerHTML == 'On') {
+                        hass.callService('fan', 'xiaomi_miio_set_child_lock_off')
+                        //u.innerHTML = 'Off'
+                    } else {
+                        hass.callService('fan', 'xiaomi_miio_set_child_lock_on')
+                        //u.innerHTML = 'On'
+                    }
+                }
+            }
             ui.querySelector('.var-natural').onclick = () => {
-                //this.log('Natural')
+                this.log('Natural')
                 if (ui.querySelector('.fanbox').classList.contains('active')) {
                     let u = ui.querySelector('.var-natural')
                     if (u.classList.contains('active') === false) {
@@ -135,13 +232,14 @@ class FanXiaomi extends HTMLElement {
                 }
             }
             ui.querySelector('.var-title').onclick = () => {
-                this.log('对话框')
+                this.log('Dialog box')
                 card.querySelector('.dialog').style.display = 'block'
             }
             this.card = card;
             this.appendChild(card);
         }
-        //设置值更新UI
+
+        // Set and update UI parameters
         this.setUI(this.card.querySelector('.fan-xiaomi-panel'), {
             title: myname || attrs['friendly_name'],
             natural_speed: attrs['natural_speed'],
@@ -151,7 +249,11 @@ class FanXiaomi extends HTMLElement {
             oscillating: attrs['oscillating'],
             led_brightness: attrs['led_brightness'],
             delay_off_countdown: attrs['delay_off_countdown'],
-            angle: attrs['angle']
+            angle: attrs['angle'],
+            speed: attrs['speed'],
+            mode: attrs['mode'],
+            model: attrs['model'],
+            speed_list: speed_list
         })
     }
 
@@ -168,7 +270,7 @@ class FanXiaomi extends HTMLElement {
         return 1;
     }
 
-    /*********************************** UI设置 ************************************/
+    /*********************************** UI settings ************************************/
     getUI() {
 
         let csss='';
@@ -225,9 +327,10 @@ p{margin:0;padding:0}
 .chevron{position:absolute;top:0;height:100%;opacity:0}
 .show{opacity:1}
 .hidden{opacity:0}
-.chevron.left{left:-30px}
-.chevron.right{right:-30px}
+.chevron.left{left:-30px;cursor:pointer}
+.chevron.right{right:-30px;cursor:pointer}
 .chevron span,.chevron span iron-icon{width:30px;height:100%}
+.button-angle,.button-childlock,.button-timer {cursor:pointer}
 
 @keyframes blades{0%{transform:translate(0,0) rotate(0)}
 to{transform:translate(0,0) rotate(3600deg)}
@@ -243,7 +346,7 @@ to{transform:perspective(10em) rotateY(40deg)}
 
 </style>
 <div class="title">
-<p class="var-title">儿童房</p>
+<p class="var-title">Playground</p>
 </div>
 <div class="fanbox">
 <div class="blades ">
@@ -271,15 +374,15 @@ to{transform:perspective(10em) rotateY(40deg)}
 </div>
 </div>
 <div class="attr-row">
-<div class="attr">
+<div class="attr button-childlock">
 <p class="attr-title">Child Lock</p>
 <p class="attr-value var-childlock">0</p>
 </div>
-<div class="attr">
+<div class="attr button-angle">
 <p class="attr-title">Angle(&deg;)</p>
 <p class="attr-value var-angle">120</p>
 </div>
-<div class="attr">
+<div class="attr button-timer">
 <p class="attr-title">Timer</p>
 <p class="attr-value var-timer">0</p>
 </div>
@@ -314,11 +417,12 @@ Natural
         return fanbox
     }
 
-    // 设置UI值
+    // Define UI Parameters
+  
     setUI(fanboxa, {title, natural_speed, direct_speed, state,
-        child_lock, oscillating, led_brightness, delay_off_countdown, angle
+        child_lock, oscillating, led_brightness, delay_off_countdown, angle, 
+        speed, mode, model, speed_list
     }) {
-
         fanboxa.querySelector('.var-title').textContent = title
         // Child Lock
         if (child_lock) {
@@ -332,7 +436,11 @@ Natural
         // Timer
         let timer_display = '0m'
         if(delay_off_countdown) {
-            let total_mins = delay_off_countdown / 60
+            let total_mins = delay_off_countdown
+            if (model !== 'dmaker.fan.p5') {
+                total_mins = total_mins / 60
+            }
+            
             let hours = Math.floor(total_mins / 60)
             let mins = Math.ceil(total_mins % 60)
             if(hours) {
@@ -351,7 +459,6 @@ Natural
             }
         } else {
             activeElement.classList.remove('active')
-            // div.querySelector('.bg-on').removeChild(div.querySelector('.contaifner'))
         }
 
         // State
@@ -362,7 +469,6 @@ Natural
             }
         } else {
             activeElement.classList.remove('active')
-            // div.querySelector('.bg-on').removeChild(div.querySelector('.container'))
         }
 
         // Speed Level
@@ -374,16 +480,25 @@ Natural
             }
         } else {
             activeElement.classList.remove('active')
-            // iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-0-box-outline"></iron-icon>'
         }
         let direct_speed_int = Number(direct_speed)
-        if (direct_speed_int <= 20) {
+        
+        if (model === 'dmaker.fan.p5') { //p5 does not report direct_speed and natural_speed            
+            direct_speed_int = speed_list[parseInt(speed[speed.length-1])-1] //speed contains "Level 1" value
+            if (mode === 'nature') {
+                natural_speed = true
+            } else if (mode === 'normal') {
+                natural_speed = false
+            }
+        }
+        
+        if (direct_speed_int <= speed_list[0]) {
             iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-1-box-outline"></iron-icon>'
-        } else if (direct_speed_int <= 40) {
+        } else if (direct_speed_int <= speed_list[1]) {
             iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-2-box-outline"></iron-icon>'
-        } else if (direct_speed_int <= 60) {
+        } else if (direct_speed_int <= speed_list[2]) {
             iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-3-box-outline"></iron-icon>'
-        } else if (direct_speed_int <= 80) {
+        } else if (direct_speed_int <= speed_list[3]) {
             iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-4-box-outline"></iron-icon>'
         } else {
             iconSpan.innerHTML = '<iron-icon icon="mdi:numeric-5-box-outline"></iron-icon>'
@@ -414,9 +529,9 @@ Natural
             fb.classList.remove('oscillation')
         }
     }
-/*********************************** UI设置 ************************************/
+/*********************************** UI Settings ************************************/
 
-    // 加入日志开关l
+    // Add to logs
     log() {
         // console.log(...arguments)
     }
